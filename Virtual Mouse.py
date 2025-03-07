@@ -1,7 +1,7 @@
 import cv2
 import mediapipe as mp
 import pyautogui as pg
-import util
+import Util as util
 from pynput.mouse import Button, Controller
 
 mpHands = mp.solutions.hands
