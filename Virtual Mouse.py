@@ -1,11 +1,19 @@
+import argparse
+
 import cv2
 import mediapipe as mp
 import pyautogui as pg
 import Util as util
+from pynput import keyboard
 from pynput.mouse import Button, Controller
 
 mpHands = mp.solutions.hands
 mouse = Controller()
+
+sensitivity = 1.0
+SENSITIVITY_MIN = 0.1
+SENSITIVITY_MAX = 3.0
+SENSITIVITY_STEP = 0.1
 quit=False
 hands = mpHands.Hands(
     static_image_mode=False,
@@ -16,13 +24,52 @@ hands = mpHands.Hands(
 )
 
 
+def set_sensitivity(value):
+    global sensitivity
+    sensitivity = round(max(SENSITIVITY_MIN, min(SENSITIVITY_MAX, value)), 2)
+    print(f"Sensitivity: {sensitivity:.2f}x  (+/- to adjust, 0 to reset)")
+
+
+def handle_sensitivity_key(char):
+    if char in ("+", "="):
+        set_sensitivity(sensitivity + SENSITIVITY_STEP)
+    elif char in ("-", "_"):
+        set_sensitivity(sensitivity - SENSITIVITY_STEP)
+    elif char == "0":
+        set_sensitivity(1.0)
+
+
+def on_key_press(key):
+    try:
+        char = key.char
+    except AttributeError:
+        return
+    if char:
+        handle_sensitivity_key(char)
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Control the mouse with hand gestures.")
+    parser.add_argument(
+        "-s", "--sensitivity", type=float, default=1.0,
+        help=f"initial cursor sensitivity ({SENSITIVITY_MIN}-{SENSITIVITY_MAX}, default 1.0)"
+    )
+    args = parser.parse_args()
+    set_sensitivity(args.sensitivity)
+
     capture = cv2.VideoCapture(0)
     draw = mp.solutions.drawing_utils
 
     if not capture.isOpened():
         print("Error: Camera not found or not accessible!")
         return
+
+    listener = None
+    try:
+        listener = keyboard.Listener(on_press=on_key_press)
+        listener.start()
+    except Exception as exc:
+        print(f"Warning: global sensitivity hotkeys unavailable ({exc}); use --sensitivity.")
 
     try:
         while True:
@@ -48,9 +95,14 @@ def main():
             # cv2.imshow('Video Frame', frame)
 
             # Proper exit condition
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
                 break
+            if key != 255:
+                handle_sensitivity_key(chr(key))
     finally:
+        if listener is not None:
+            listener.stop()
         capture.release()
         cv2.destroyAllWindows()
 
@@ -113,13 +165,15 @@ def find_finger_tip(processed):
 
 
 def move_mouse(index_tip):
-    screen_width, screen_height = pg.size()
+    if index_tip is None:
+        return
 
-    if index_tip is not None:
-        sensitivity=1
-        x = int(index_tip.x * screen_width*sensitivity)
-        y = int(index_tip.y * screen_height*sensitivity)
-        pg.moveTo(x, y)
+    screen_width, screen_height = pg.size()
+    x = int(screen_width / 2 + (index_tip.x - 0.5) * screen_width * sensitivity)
+    y = int(screen_height / 2 + (index_tip.y - 0.5) * screen_height * sensitivity)
+    x = max(0, min(screen_width - 1, x))
+    y = max(0, min(screen_height - 1, y))
+    pg.moveTo(x, y)
 
 
 if __name__ == '__main__':
