@@ -62,7 +62,7 @@ def detect_gestures(frame, land_mark_list, processed):
     index_tip = _finger_tip = find_finger_tip(processed)
     thumbcross = util.get_distance(land_mark_list[4], land_mark_list[5])
     index_angle = util.get_angle(land_mark_list[5], land_mark_list[6], land_mark_list[8])
-    middle_angle = util.get_angle(land_mark_list[5], land_mark_list[6], land_mark_list[8])
+    middle_angle = util.get_angle(land_mark_list[9], land_mark_list[10], land_mark_list[12])
 
 
     if thumbcross < 100 and index_angle > 130 and middle_angle > 130:
